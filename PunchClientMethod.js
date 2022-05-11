@@ -1,18 +1,18 @@
-import {executeService,compareTwoDatesEquals,compareTwoDatesLessEquals,getZeroTimeDate} from "./Utility";
+import { executeService, compareTwoDatesEquals, compareTwoDatesLessEquals, getZeroTimeDate } from "./Utility";
 import moment from "moment";
 const copyFileSync = require('fs-copy-file-sync');
 import fs from "fs";
 import { Console } from "console";
-let ENTRY="538888bd2d345c0200e223c5";
-let EXIT="538888bd2d345c0200e223ca";
+let ENTRY = "538888bd2d345c0200e223c5";
+let EXIT = "538888bd2d345c0200e223ca";
 
-global.console.singleLog = function(log){
+global.console.singleLog = function (log) {
     // console.log(log);
 }
 
-export const syncAllData =async(connectdb,config)=> {
-   console.singleLog("syncAllData called >>>>>");
-   let record_break_time = config.record_break_time;
+export const syncAllData = async (connectdb, config) => {
+    console.singleLog("syncAllData called >>>>>");
+    let record_break_time = config.record_break_time;
     let record_batch_size = config.record_batch_size;
     if (!record_break_time) {
         record_break_time = 180;
@@ -21,7 +21,7 @@ export const syncAllData =async(connectdb,config)=> {
         record_batch_size = 20;
     }
     if (config && config.token) {
-     let lastUpdateInfoData = await getLastRunServerInfo(config);
+        let lastUpdateInfoData = await getLastRunServerInfo(config);
         copyFileSync(config.punchSource, config.punchDestination);
         lastUpdateInfoData = lastUpdateInfoData.result && JSON.parse(lastUpdateInfoData.result) || {};
         let lastUpdateInfo = lastUpdateInfoData;
@@ -49,11 +49,11 @@ export const syncAllData =async(connectdb,config)=> {
             } else {
                 lastRunDate = new Date(lastRunDateStr);
             }
-         let markComplete = true;
+            let markComplete = true;
             let cardList = await getAllCard(connectdb);
             // console.singleLog("cardList>>>>>>" + JSON.stringify(cardList))
             console.singleLog("cardList length===>>>>>>" + cardList.length)
-			console.singleLog("lastUpdateDate>>>>>>" + JSON.stringify(lastUpdateDate))
+            console.singleLog("lastUpdateDate>>>>>>" + JSON.stringify(lastUpdateDate))
             console.singleLog("currentDate>>>>>>" + JSON.stringify(currentDate))
             if (cardList && cardList.length > 0) {
                 while (compareTwoDatesLessEquals(lastUpdateDate, currentDate)) {
@@ -63,7 +63,7 @@ export const syncAllData =async(connectdb,config)=> {
                     if (compareTwoDatesEquals(lastUpdateDate, currentDate)) {
                         markComplete = false;
                     }
-                    await readAndUpdatePunchDataOfAllCardsOnServer(cardList, connectdb,punchObservationDateStr, markComplete, punchObservationDateNext,  record_break_time, record_batch_size,  lastRunDate,config);
+                    await readAndUpdatePunchDataOfAllCardsOnServer(cardList, connectdb, punchObservationDateStr, markComplete, punchObservationDateNext, record_break_time, record_batch_size, lastRunDate, config);
                     lastUpdateDate.setUTCDate(lastUpdateDate.getUTCDate() + 1)
                     lastUpdateDateNext.setUTCDate(lastUpdateDateNext.getUTCDate() + 1)
 
@@ -76,14 +76,14 @@ export const syncAllData =async(connectdb,config)=> {
             console.singleLog("No last update info found...");
             console.singleLog("---------------------------------------------");
         }
-    }else{
+    } else {
         console.singleLog("---------------------------------------------");
         console.singleLog("No token info found...");
         console.singleLog("---------------------------------------------");
     }
 }
 
-let copyFileToDestination=async(source,destination)=>{
+let copyFileToDestination = async (source, destination) => {
     fs.renameSync(source, destination, function (err) {
         if (err) {
             console.singleLog(err);
@@ -95,100 +95,100 @@ let copyFileToDestination=async(source,destination)=>{
 
 
 
-let readAndUpdatePunchDataOfAllCardsOnServer=async (cardList, connectdb, lastUpdatedOn, markComplete,  punchObservationDateNext,record_break_time,record_batch_size,lastRunDate,config)=> {
+let readAndUpdatePunchDataOfAllCardsOnServer = async (cardList, connectdb, lastUpdatedOn, markComplete, punchObservationDateNext, record_break_time, record_batch_size, lastRunDate, config) => {
     if (!connectdb) {
         throw new Error("Data instance not found");
     }
-        let cardCount = cardList && cardList.length > 0 && cardList.length || 0;
-        console.singleLog("cardList >> << ============ count =============== [" + cardCount + "]");
-        let  counter = 0;
-        let updates={};
-        let  allAttendanceUpdates = [];
-        let  recordBreakTime = Number(record_break_time);
-        let  recordBatchSize = Number(record_batch_size);
-        for (let c2=0;c2 < cardList.length;c2++) {
-            counter++;
-            let employeeData=cardList[c2];
-            let  employeePunchDetailsObject = {};
-            let  employeeId = employeeData.EMPNAME;
-            let  applanePunchNumber = employeeData.PAYCODE;
-                employeePunchDetailsObject["applanePunchNumber"]=applanePunchNumber;
-                employeePunchDetailsObject["name"]=employeeId;
-                let inOutDate = null;
-                let query = `SELECT * FROM MachineRawPunch where PAYCODE='${applanePunchNumber}' AND OFFICEPUNCH>=#${lastUpdatedOn.toLocaleDateString('en-IN')} 00:00:00 AM# AND OFFICEPUNCH<=#${lastUpdatedOn.toLocaleDateString('en-IN')} 11:59:59 PM# ORDER BY OFFICEPUNCH ASC`;
-               // let query = "SELECT IODate, IOTime, IOStatus, IOGateName FROM IOData where CardNo=" + applanePunchNumber +" And DATE(IODate) = '"+dateFilter+"'";
-                let punchDateResultSet = await connectdb.ExecuteQuery(query);
-                console.log("Result ----------------------------------------------------------------------- \n")
-                // console.log("punchDateResultSet>>>>>"+JSON.stringify(punchDateResultSet))
-                let record = [];
-                    if (punchDateResultSet && punchDateResultSet.length >0) {
-                        let inDateTime = punchDateResultSet[0].OFFICEPUNCH;
-                        let outDateTime = punchDateResultSet[punchDateResultSet.length-1].OFFICEPUNCH;
-                        let inDate = (moment(inDateTime).format("YYYY-MM-DD")); 
-                        let inTime = (moment(inDateTime).format('HH:mm:ss'));
-                        let outDate = (moment(outDateTime).format("YYYY-MM-DD"));
-                        let outTime = (moment(outDateTime).format("HH:mm:ss"));
-                        inOutDate = inDate;
-                        let actualTime = (moment.utc(moment(outDateTime).diff(moment(inDateTime)))).format("HH:mm:ss");
-                        record.push({
-                            inDate,
-                            outDate,
-                            inTime,
-                            outTime,
-                            actualTime,
-                           payCode: punchDateResultSet[0].PAYCODE,
-                        });
-                    }
+    let cardCount = cardList && cardList.length > 0 && cardList.length || 0;
+    console.singleLog("cardList >> << ============ count =============== [" + cardCount + "]");
+    let counter = 0;
+    let updates = {};
+    let allAttendanceUpdates = [];
+    let recordBreakTime = Number(record_break_time);
+    let recordBatchSize = Number(record_batch_size);
+    for (let c2 = 0; c2 < cardList.length; c2++) {
+        counter++;
+        let employeeData = cardList[c2];
+        let employeePunchDetailsObject = {};
+        let employeeId = employeeData.EMPNAME;
+        let applanePunchNumber = employeeData.PAYCODE;
+        employeePunchDetailsObject["applanePunchNumber"] = applanePunchNumber;
+        employeePunchDetailsObject["name"] = employeeId;
+        let inOutDate = null;
+        let query = `SELECT * FROM MachineRawPunch where PAYCODE='${applanePunchNumber}' AND OFFICEPUNCH>=#${lastUpdatedOn.toLocaleDateString('en-IN')} 00:00:00 AM# AND OFFICEPUNCH<=#${lastUpdatedOn.toLocaleDateString('en-IN')} 11:59:59 PM# ORDER BY OFFICEPUNCH ASC`;
+        // let query = "SELECT IODate, IOTime, IOStatus, IOGateName FROM IOData where CardNo=" + applanePunchNumber +" And DATE(IODate) = '"+dateFilter+"'";
+        let punchDateResultSet = await connectdb.ExecuteQuery(query);
+        console.log("Result ----------------------------------------------------------------------- \n")
+        // console.log("punchDateResultSet>>>>>"+JSON.stringify(punchDateResultSet))
+        let record = [];
+        if (punchDateResultSet && punchDateResultSet.length > 0) {
+            let inDateTime = punchDateResultSet[0].OFFICEPUNCH;
+            let outDateTime = punchDateResultSet[punchDateResultSet.length - 1].OFFICEPUNCH;
+            let inDate = (moment(inDateTime).format("YYYY-MM-DD"));
+            let inTime = (moment(inDateTime).format('HH:mm:ss'));
+            let outDate = (moment(outDateTime).format("YYYY-MM-DD"));
+            let outTime = (moment(outDateTime).format("HH:mm:ss"));
+            inOutDate = inDate;
+            let actualTime = (moment.utc(moment(outDateTime).diff(moment(inDateTime)))).format("HH:mm:ss");
+            record.push({
+                inDate,
+                outDate,
+                inTime,
+                outTime,
+                actualTime,
+                payCode: punchDateResultSet[0].PAYCODE,
+            });
+        }
 
 
-                    if (record.length > 0) {
-                            employeePunchDetailsObject.punch_data=record;
-                        } else {
-                            employeePunchDetailsObject = null;
-                        }
-                if (employeePunchDetailsObject != null) {
-                        allAttendanceUpdates.push(employeePunchDetailsObject);
-                        if (allAttendanceUpdates && allAttendanceUpdates.length == recordBatchSize) {
-                            updates.alldata=allAttendanceUpdates;
-                             // console.singleLog("punch data updates" + JSON.stringify(allAttendanceUpdates));
-                             console.log("punch data updates length>>>>>" + allAttendanceUpdates.length);
-                             await  updatePunchData(config,updates)
-                            allAttendanceUpdates = [];
-                            recordBreakTime=recordBreakTime*1000;
-                            console.singleLog("recordBreakTime >> >> " + recordBreakTime);
-                            // Thread.sleep(recordBreakTime * 1000);
-                           // let myVar = setTimeout(()=>{
-                           //      console.singleLog("break taken")
-                           //  }, recordBreakTime);
-                        }
-                }
-                console.log("counter >> " + counter);
-                console.log("cardList.size() >> " + cardList.length);
-                if (counter == cardList.length) {
-                    if (!inOutDate) {
-                        inOutDate = lastUpdatedOn;
-                    }
-                    let punchDateHistoryUpdates = {};
-                    punchDateHistoryUpdates.location= {_id:config.branch_id};
-                    punchDateHistoryUpdates.date=inOutDate;
-                   console.singleLog("punch date history updates >> " + JSON.stringify(punchDateHistoryUpdates));
-                   // console.singleLog("punch data updates" + JSON.stringify(allAttendanceUpdates));
-                    console.log("punch data updates length>>>>>" + allAttendanceUpdates.length);
-                   await updatePunchDateHistory(config,{updates:punchDateHistoryUpdates});
-                    if (allAttendanceUpdates  && allAttendanceUpdates.length > 0 && allAttendanceUpdates.length <= recordBatchSize) {
-                        updates.alldata= allAttendanceUpdates;
-                        await  updatePunchData(config,updates)
-                        allAttendanceUpdates = [];
-                        console.singleLog("successfully updated>>>>>")
-                        console.singleLog("Sleep for "+config.sleepinminutes)
-
-                    }
-
-                }
+        if (record.length > 0) {
+            employeePunchDetailsObject.punch_data = record;
+        } else {
+            employeePunchDetailsObject = null;
+        }
+        if (employeePunchDetailsObject != null) {
+            allAttendanceUpdates.push(employeePunchDetailsObject);
+            if (allAttendanceUpdates && allAttendanceUpdates.length == recordBatchSize) {
+                updates.alldata = allAttendanceUpdates;
+                // console.singleLog("punch data updates" + JSON.stringify(allAttendanceUpdates));
+                console.log("punch data updates length>>>>>" + allAttendanceUpdates.length);
+                await updatePunchData(config, updates)
+                allAttendanceUpdates = [];
+                recordBreakTime = recordBreakTime * 1000;
+                console.singleLog("recordBreakTime >> >> " + recordBreakTime);
+                // Thread.sleep(recordBreakTime * 1000);
+                // let myVar = setTimeout(()=>{
+                //      console.singleLog("break taken")
+                //  }, recordBreakTime);
             }
+        }
+        console.log("counter >> " + counter);
+        console.log("cardList.size() >> " + cardList.length);
+        if (counter == cardList.length) {
+            if (!inOutDate) {
+                inOutDate = lastUpdatedOn;
+            }
+            let punchDateHistoryUpdates = {};
+            punchDateHistoryUpdates.location = { _id: config.branch_id };
+            punchDateHistoryUpdates.date = inOutDate;
+            console.singleLog("punch date history updates >> " + JSON.stringify(punchDateHistoryUpdates));
+            // console.singleLog("punch data updates" + JSON.stringify(allAttendanceUpdates));
+            console.log("punch data updates length>>>>>" + allAttendanceUpdates.length);
+            await updatePunchDateHistory(config, { updates: punchDateHistoryUpdates });
+            if (allAttendanceUpdates && allAttendanceUpdates.length > 0 && allAttendanceUpdates.length <= recordBatchSize) {
+                updates.alldata = allAttendanceUpdates;
+                await updatePunchData(config, updates)
+                allAttendanceUpdates = [];
+                console.singleLog("successfully updated>>>>>")
+                console.singleLog("Sleep for " + config.sleepinminutes)
+
+            }
+
+        }
+    }
 };
 
-let getAllCard=async (connectdb)=>{
+let getAllCard = async (connectdb) => {
 
     //let cardResultSet1 = await connectdb.ExecuteQuery(`"select * from HolderData where GetCardFlag=1"`);
     let cardResultSet = await connectdb.ExecuteQuery("select * from TblEmployee");
@@ -197,73 +197,76 @@ let getAllCard=async (connectdb)=>{
 
 };
 
-let getLastRunServerInfo=async (config)=>{
-    let  service={
+let getLastRunServerInfo = async (config) => {
+    let service = {
         // hostname: "192.168.100.92",
         // port: "5000",
-        host:config.serverurl,
+        host: config.serverurl,
         path: "/escape/getlastupdateinfo",
         method: "POST"
     }
-    let  params={
-        id:config.serverlastread,
-        paramValue:{filter:{location_id:{_id:config.branch_id}}},
-        "token":config.token}
-    let options= {
-        skipQS:true,
+    let params = {
+        id: config.serverlastread,
+        paramValue: { filter: { location_id: { _id: config.branch_id } } },
+        "token": config.token
+    }
+    let options = {
+        skipQS: true,
         headers: {
             "Content-Type": "application/json"
         }
     }
-    let  lastUpdateInfoData = await executeService({ service, params, options});
+    let lastUpdateInfoData = await executeService({ service, params, options });
     return lastUpdateInfoData
 
 };
 
-let updatePunchDateHistory=async (config,updata)=>{
+let updatePunchDateHistory = async (config, updata) => {
     // console.log("========updatePunchDateHistory " , updata)
-    let  service={
+    let service = {
         // hostname: "192.168.100.92",
         // port: "5000",
-         host:config.serverurl,
+        host: config.serverurl,
         path: "/escape/setlastpunchdate",
         method: "POST"
     }
-    let  params={
-        id:config.serveruploadpunchhistory,
-        paramValue:updata,
-        "token":config.token}
-    let options= {
-        skipQS:true,
+    let params = {
+        id: config.serveruploadpunchhistory,
+        paramValue: updata,
+        "token": config.token
+    }
+    let options = {
+        skipQS: true,
         headers: {
             "Content-Type": "application/json"
         }
     }
-    let  lastUpdateInfoData = await executeService({ service, params, options});
+    let lastUpdateInfoData = await executeService({ service, params, options });
     return lastUpdateInfoData
 
 };
 
-let updatePunchData=async (config,updata)=>{
-    let  service={
+let updatePunchData = async (config, updata) => {
+    let service = {
         // hostname: "192.168.100.92",
         // port: "5000",
-        host:config.serverurl,
+        host: config.serverurl,
         path: "/escape/markpunchingdata",
         method: "POST"
     }
-    let  params={
-        id:config.serverpunchupload,
-        paramValue:updata,
-        "token":config.token}
-    let options= {
-        skipQS:true,
+    let params = {
+        id: config.serverpunchupload,
+        paramValue: updata,
+        "token": config.token
+    }
+    let options = {
+        skipQS: true,
         headers: {
             "Content-Type": "application/json"
         }
     }
     console.log("UPDATEPUNCHDATA~~~~~~~~~~~~~~~~~>>>>>>> ")
-    let  lastUpdateInfoData = await executeService({ service, params, options});
+    let lastUpdateInfoData = await executeService({ service, params, options });
     return lastUpdateInfoData;
 };
 

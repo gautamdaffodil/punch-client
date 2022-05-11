@@ -27,10 +27,10 @@ class SqlConnect {
         })
     }
 
-    ExecuteQuery(query){
-        return new Promise((resolve,reject)=>{
-            this.SqlConnect.query(query,(err,data)=>{
-                if(err){
+    ExecuteQuery(query) {
+        return new Promise((resolve, reject) => {
+            this.SqlConnect.query(query, (err, data) => {
+                if (err) {
                     reject(err)
                 }
                 resolve(data)
