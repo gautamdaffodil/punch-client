@@ -120,7 +120,6 @@ let readAndUpdatePunchDataOfAllCardsOnServer=async (cardList, connectdb, lastUpd
                 let punchDateResultSet = await connectdb.ExecuteQuery(query);
                 console.log("Result ----------------------------------------------------------------------- \n")
                 // console.log("punchDateResultSet>>>>>"+JSON.stringify(punchDateResultSet))
-                let putIntoArray = false;
                 let record = [];
                     if (punchDateResultSet && punchDateResultSet.length >0) {
                         let inDateTime = punchDateResultSet[0].OFFICEPUNCH;
@@ -143,17 +142,16 @@ let readAndUpdatePunchDataOfAllCardsOnServer=async (cardList, connectdb, lastUpd
 
 
                     if (record.length > 0) {
-                        putIntoArray =true;
                             employeePunchDetailsObject.punch_data=record;
                         } else {
                             employeePunchDetailsObject = null;
                         }
-                if (employeePunchDetailsObject != null && putIntoArray) {
+                if (employeePunchDetailsObject != null) {
                         allAttendanceUpdates.push(employeePunchDetailsObject);
                         if (allAttendanceUpdates && allAttendanceUpdates.length == recordBatchSize) {
                             updates.alldata=allAttendanceUpdates;
                              // console.singleLog("punch data updates" + JSON.stringify(allAttendanceUpdates));
-                             console.singleLog("punch data updates length>>>>>" + allAttendanceUpdates.length);
+                             console.log("punch data updates length>>>>>" + allAttendanceUpdates.length);
                              await  updatePunchData(config,updates)
                             allAttendanceUpdates = [];
                             recordBreakTime=recordBreakTime*1000;
@@ -194,7 +192,7 @@ let getAllCard=async (connectdb)=>{
 
     //let cardResultSet1 = await connectdb.ExecuteQuery(`"select * from HolderData where GetCardFlag=1"`);
     let cardResultSet = await connectdb.ExecuteQuery("select * from TblEmployee");
-    // console.log("cardResultSet >>>>> " + JSON.stringify(cardResultSet));
+    console.log("cardResultSet >>>>> " + JSON.stringify(cardResultSet));
     return cardResultSet
 
 };
@@ -264,7 +262,7 @@ let updatePunchData=async (config,updata)=>{
             "Content-Type": "application/json"
         }
     }
-    console.singleLog("UPDATEPUNCHDATA~~~~~~~~~~~~~~~~~>>>>>>> ")
+    console.log("UPDATEPUNCHDATA~~~~~~~~~~~~~~~~~>>>>>>> ")
     let  lastUpdateInfoData = await executeService({ service, params, options});
     return lastUpdateInfoData;
 };
